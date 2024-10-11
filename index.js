@@ -1,5 +1,11 @@
 const { createServer } = require('http');
 const { Server } = require('socket.io');
+const { getCurrentTime } = require('./lib/functions.js');
+const cors = require('cors');
+
+require('dotenv').config();
+
+const port = process.env.PORT;
 
 const httpServer = createServer();
 const io = new Server(httpServer, {
@@ -40,19 +46,6 @@ io.on('connection', (socket) => {
 	});
 });
 
-httpServer.listen(3023, () => {
-	console.log('Server is running...');
+httpServer.listen(port, () => {
+	console.log(`Server is running on port ${port}...`);
 });
-
-function getCurrentTime() {
-	const now = new Date();
-	let hours = now.getHours();
-	const minutes = now.getMinutes();
-	const ampm = hours >= 12 ? 'pm' : 'am';
-
-	hours = hours % 12;
-	hours = hours ? hours : 12; // the hour '0' should be '12'
-	const minutesStr = minutes < 10 ? '0' + minutes : minutes;
-
-	return hours + ':' + minutesStr + ampm;
-}
