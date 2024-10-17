@@ -1,13 +1,28 @@
 const { createServer } = require('http');
 const { Server } = require('socket.io');
+const express = require('express');
 const { getCurrentTime } = require('./lib/functions.js');
 const cors = require('cors');
 
 require('dotenv').config();
 
+const app = express();
 const port = process.env.PORT;
 
-const httpServer = createServer();
+let client;
+
+const connectedUsers = {};
+
+// Middleware
+app.use(cors());
+app.use(express.json());
+
+// Health check route
+app.get('/status', (req, res) => {
+	res.status(200).json({ message: `Server is reachable ${getCurrentTime()}` });
+});
+
+const httpServer = createServer(app);
 const io = new Server(httpServer, {
 	cors: {
 		origin: '*',
@@ -16,9 +31,23 @@ const io = new Server(httpServer, {
 
 io.on('connection', (socket) => {
 	console.log(`⚡: ${socket.id} user just connected! ${getCurrentTime()}`);
+	connectedUsers[socket.id] = true;
 
 	socket.on('disconnect', () => {
+		if (socket.id == client) {
+			socket.broadcast.emit('client-disconnect', client);
+			client = null;
+		}
+		delete connectedUsers[socket.id];
 		console.log('🔥: A user disconnected ', getCurrentTime());
+	});
+
+	socket.on('ping', (req) => {
+		if (connectedUsers[req]) {
+			socket.to(socket.id).emit('pong', true);
+		} else {
+			socket.to(socket.id).emit('pong', false);
+		}
 	});
 
 	socket.on('entered-email', (req) => {
@@ -43,6 +72,12 @@ io.on('connection', (socket) => {
 
 	socket.on('error-code', (req) => {
 		socket.broadcast.emit('send-code-error', req);
+	});
+
+	socket.on('client-connected', (req) => {
+		if (connectedUsers[socket.id]) client = socket.id;
+
+		socket.broadcast.emit('client-secure', socket.id);
 	});
 });
 
